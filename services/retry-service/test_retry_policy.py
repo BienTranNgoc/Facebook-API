@@ -4,7 +4,7 @@ import unittest
 os.environ.setdefault("MAX_RETRY_COUNT", "3")
 os.environ.setdefault("RETRY_BACKOFF_BASE_SECONDS", "1")
 
-from app import backoff_seconds, next_retry_payload, should_dead_letter
+from app import backoff_seconds, next_retry_payload, should_dead_letter  # noqa: E402
 
 
 class RetryPolicyTests(unittest.TestCase):

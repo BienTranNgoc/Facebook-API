@@ -51,8 +51,6 @@ db.sqlite3
 db.sqlite3-journal
 media/
 staticfiles/
-**/migrations/*.py
-!**/migrations/__init__.py
 
 # Celery
 celerybeat-schedule

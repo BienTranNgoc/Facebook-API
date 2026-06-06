@@ -12,6 +12,7 @@ class JsonKafkaProducer:
         if not self.enabled:
             return
         from kafka import KafkaProducer
+
         self._producer = KafkaProducer(
             bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092").split(","),
             value_serializer=lambda value: json.dumps(value, ensure_ascii=True).encode("utf-8"),

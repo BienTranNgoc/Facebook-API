@@ -35,6 +35,7 @@ class BackendApiTests(TestCase):
         self.assertEqual(second["status"], "duplicate_skipped")
         self.assertEqual(IdempotencyKey.objects.count(), 1)
 
+    @override_settings(DASHBOARD_API_TOKEN="")
     def test_create_post_requires_message(self):
         response = self.client.post("/post", data=json.dumps({}), content_type="application/json")
         self.assertEqual(response.status_code, 400)
@@ -59,12 +60,14 @@ class FacebookClientLiveModeTests(SimpleTestCase):
     @patch.object(FacebookClient, "_log")
     @patch("applications.facebook_client.urllib.request.urlopen")
     def test_hide_comment_treats_duplicate_spam_mark_as_success(self, urlopen, log_mock):
-        payload = json.dumps({
-            "error": {
-                "message": "An unknown error occurred",
-                "error_subcode": 1446036,
+        payload = json.dumps(
+            {
+                "error": {
+                    "message": "An unknown error occurred",
+                    "error_subcode": 1446036,
+                }
             }
-        })
+        )
         urlopen.side_effect = urllib.error.HTTPError(
             "https://graph.facebook.com/v20.0/comment-1",
             400,

@@ -57,7 +57,7 @@ def should_dead_letter(payload):
 
 def backoff_seconds(payload):
     retry_count = int(payload.get("retry_count", 0))
-    return BACKOFF_BASE_SECONDS * (2 ** retry_count)
+    return BACKOFF_BASE_SECONDS * (2**retry_count)
 
 
 def run_consumer():

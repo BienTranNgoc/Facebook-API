@@ -47,13 +47,37 @@ class Analyzer:
         if any(word in normalized for word in ["scam", "link", "kiem tien", "vay tien", "casino"]):
             is_spam = True
         if is_spam:
-            return {"intent": "spam", "sentiment": "negative", "spam": True, "confidence": 0.95, "provider": "heuristic"}
+            return {
+                "intent": "spam",
+                "sentiment": "negative",
+                "spam": True,
+                "confidence": 0.95,
+                "provider": "heuristic",
+            }
         if any(word in normalized for word in ["gia", "bao nhieu", "price", "mua", "dat hang"]):
-            return {"intent": "ask_price", "sentiment": "neutral", "spam": False, "confidence": 0.8, "provider": "heuristic"}
+            return {
+                "intent": "ask_price",
+                "sentiment": "neutral",
+                "spam": False,
+                "confidence": 0.8,
+                "provider": "heuristic",
+            }
         if any(word in normalized for word in ["tot", "hay", "cam on", "ung ho", "tuyet", "nhanh", "hai long"]):
-            return {"intent": "praise", "sentiment": "positive", "spam": False, "confidence": 0.78, "provider": "heuristic"}
+            return {
+                "intent": "praise",
+                "sentiment": "positive",
+                "spam": False,
+                "confidence": 0.78,
+                "provider": "heuristic",
+            }
         if any(word in normalized for word in ["khieu nai", "chua nhan", "tre", "loi", "te", "that vong"]):
-            return {"intent": "complaint", "sentiment": "negative", "spam": False, "confidence": 0.82, "provider": "heuristic"}
+            return {
+                "intent": "complaint",
+                "sentiment": "negative",
+                "spam": False,
+                "confidence": 0.82,
+                "provider": "heuristic",
+            }
         return {"intent": "general", "sentiment": "neutral", "spam": False, "confidence": 0.6, "provider": "heuristic"}
 
     def _call_gemini(self, text):
@@ -64,23 +88,17 @@ class Analyzer:
             "If spam is true or no public reply is appropriate, set reply_text to an empty string. "
             "Do not invent prices, policies, discounts, order status, or private details. Do not mention AI."
         )
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={self.gemini_key}"
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.gemini_model}:generateContent?key={self.gemini_key}"
+        )
         body = json.dumps(
             {
-                "contents": [
-                    {
-                        "parts": [
-                            {"text": prompt + "\n\nComment: " + text[:1500]}
-                        ]
-                    }
-                ],
-                "generationConfig": {
-                    "temperature": 0,
-                    "responseMimeType": "application/json"
-                }
+                "contents": [{"parts": [{"text": prompt + "\n\nComment: " + text[:1500]}]}],
+                "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
             }
         ).encode("utf-8")
-        
+
         request = urllib.request.Request(
             url,
             data=body,
@@ -91,10 +109,10 @@ class Analyzer:
         )
         with urllib.request.urlopen(request, timeout=self.timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
-            
+
         content = payload["candidates"][0]["content"]["parts"][0]["text"]
         result = json.loads(content)
-        
+
         return {
             "intent": result.get("intent", "general"),
             "sentiment": result.get("sentiment", "neutral"),
