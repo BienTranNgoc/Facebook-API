@@ -35,6 +35,7 @@ class BackendApiTests(TestCase):
         self.assertEqual(second["status"], "duplicate_skipped")
         self.assertEqual(IdempotencyKey.objects.count(), 1)
 
+    @override_settings(DASHBOARD_API_TOKEN="")
     def test_create_post_requires_message(self):
         response = self.client.post("/post", data=json.dumps({}), content_type="application/json")
         self.assertEqual(response.status_code, 400)

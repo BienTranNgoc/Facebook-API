@@ -84,7 +84,7 @@ jobs:
           fi
 
   test:
-    name: Test
+    name: Test and Coverage
     runs-on: ubuntu-latest
     needs: [lint]
     steps:
@@ -98,20 +98,68 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
       - name: Install dependencies
         run: |
-          if [ -f services/backend-api/requirements.txt ]; then
-            pip install -r services/backend-api/requirements.txt
-          fi
-      - name: Run tests
-        working-directory: services/backend-api
+          python -m pip install --upgrade pip
+          pip install coverage pytest pytest-cov pytest-django
+          find services -name "requirements.txt" -exec pip install -r {} +
+      - name: Run tests with coverage
         env:
-          DJANGO_SETTINGS_MODULE: backend.settings
+          DJANGO_SETTINGS_MODULE: ProjectConfig.settings
           DATABASE_URL: sqlite:///test.db
           FACEBOOK_API_MODE: mock
           SECRET_KEY: ci-test-key
+          KAFKA_ENABLED: "false"
         run: |
-          if [ -f manage.py ]; then
-            python manage.py test applications --verbosity=2
-          fi
+          # Initialize coverage
+          python -m coverage erase
+          
+          # Run tests for each service in parallel mode (-p) to allow combining later
+          
+          # Backend API (Django)
+          cd services/backend-api && python -m coverage run -p --source=. manage.py test applications --verbosity=2 && cd ../..
+          
+          # Core Service
+          PYTHONPATH=services/core-service python -m coverage run -p --source=services/core-service -m pytest services/core-service/test_core_*.py
+          
+          # Retry Service
+          PYTHONPATH=services/retry-service python -m coverage run -p --source=services/retry-service -m pytest services/retry-service/test_retry_*.py
+          
+          # Webhook Service
+          PYTHONPATH=services/webhook-service python -m coverage run -p --source=services/webhook-service -m pytest services/webhook-service/test_webhook_*.py
+          
+          # Move all coverage data files to root and combine
+          find services -name ".coverage.*" -exec mv {} . \;
+          python -m coverage combine
+          
+          # Generate reports
+          python -m coverage xml -o coverage.xml
+          python -m coverage report --show-missing
+          
+          # Enforce > 90% coverage (Note: will fail if currently below 90%)
+          python -m coverage report --fail-under=90
+
+      - name: Upload coverage to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  sonarqube:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
   docker-validate:
     name: Validate Docker Compose

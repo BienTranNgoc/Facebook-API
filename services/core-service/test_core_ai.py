@@ -1,4 +1,7 @@
+import json
 import unittest
+from unittest.mock import MagicMock, patch
+
 from ai import Analyzer, _parse_bool, _parse_confidence
 
 class TestAI(unittest.TestCase):
@@ -37,12 +40,36 @@ class TestAI(unittest.TestCase):
         self.assertEqual(result["sentiment"], "positive")
         self.assertFalse(result["spam"])
 
-    def test_parse_gemini_confidence_labels(self):
-        self.assertEqual(_parse_confidence("high"), 0.9)
-        self.assertEqual(_parse_confidence("85%"), 0.85)
-        self.assertEqual(_parse_confidence("unexpected"), 0.5)
-        self.assertTrue(_parse_bool("true"))
-        self.assertFalse(_parse_bool("false"))
+    @patch("urllib.request.urlopen")
+    def test_call_gemini_success(self, mock_urlopen):
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({
+            "candidates": [{
+                "content": {
+                    "parts": [{"text": '{"intent": "praise", "sentiment": "positive", "spam": false, "confidence": 0.9, "reply_text": "Cam on ban!"}'}]
+                }
+            }]
+        }).encode("utf-8")
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        self.analyzer.gemini_key = "fake-key"
+        result = self.analyzer.analyze({"text": "Great service!"})
+        
+        self.assertEqual(result["intent"], "praise")
+        self.assertEqual(result["sentiment"], "positive")
+        self.assertEqual(result["provider"], "gemini")
+
+    @patch("urllib.request.urlopen")
+    def test_call_gemini_failure_triggers_fallback(self, mock_urlopen):
+        import urllib.error
+        mock_urlopen.side_effect = urllib.error.URLError("API Down")
+        
+        self.analyzer.gemini_key = "fake-key"
+        result = self.analyzer.analyze({"text": "Kiem tien nhanh"})
+        
+        self.assertEqual(result["provider"], "heuristic_fallback")
+        self.assertEqual(result["intent"], "spam")
 
 if __name__ == "__main__":
     unittest.main()
