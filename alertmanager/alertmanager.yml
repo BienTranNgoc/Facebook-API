@@ -1,0 +1,27 @@
+global:
+    smtp_smarthost: "mailpit:1025"
+    smtp_from: "alertmanager@fb-api.local"
+    smtp_require_tls: false
+route:
+    receiver: "email-notifications"
+    group_wait: 10s
+    group_interval: 5m
+    repeat_interval: 1h
+    routes:
+        - match:
+              severity: critical
+          receiver: "email-notifications"
+          group_wait: 0s
+receivers:
+    - name: "email-notifications"
+      email_configs:
+          - to: "tranngocbien2809@gmail.com"
+            send_resolved: true
+            headers:
+                subject: >-
+                    [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
+            html: >-
+                {{ range .Alerts }}
+                <p><strong>{{ .Annotations.summary }}</strong></p>
+                <p>{{ .Annotations.description }}</p>
+                {{ end }}

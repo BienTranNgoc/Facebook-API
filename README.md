@@ -12,6 +12,7 @@ An event-driven, microservices-based pipeline for automating Facebook Page inter
 
 ## Table of Contents
 
+- [Assignment Information](#assignment-information)
 - [Architecture](#architecture)
 - [Services](#services)
 - [Tech Stack](#tech-stack)
@@ -25,8 +26,37 @@ An event-driven, microservices-based pipeline for automating Facebook Page inter
 - [Observability](#observability)
 - [Failure Handling](#failure-handling)
 - [Testing](#testing)
+- [GitHub Workflow](#github-workflow)
 - [Project Structure](#project-structure)
 - [License](#license)
+
+---
+
+## Assignment Information
+
+| Field | Value |
+|-------|-------|
+| Course | Lập trình API |
+| Topic | Hệ thống quản lý Facebook Page phân tán |
+| Repository | https://github.com/BienTranNgoc/Facebook-API |
+| Repository visibility | Public. If changed to Private, add the lecturer as a collaborator before submission. |
+| Swagger UI | http://localhost:3000/swagger/ (planned for the REST/OpenAPI requirement) |
+
+### Team Members
+
+| Student ID | Full name | Class | Responsibility |
+|------------|-----------|-------|----------------|
+| 6451071004 | Trần Ngọc Biên | CQ.64.CNTT | System design, backend API, Kafka workflow, AI automation, deployment/testing report |
+
+### Functional Scope
+
+- Receive Facebook Page webhook events and normalize comment payloads.
+- Publish events to Kafka for asynchronous processing.
+- Classify comment intent, sentiment, and spam signals with AI or heuristic fallback.
+- Generate automation commands for reply, hide, no-op, or manual review.
+- Execute Facebook Graph API commands through the backend API.
+- Store command state, idempotency keys, retry attempts, and processing errors.
+- Monitor dead-letter and consumer lag signals through Prometheus, Grafana, and Alertmanager.
 
 ---
 
@@ -170,6 +200,12 @@ All inter-service communication flows through Kafka. Topics are auto-created by 
 
 ## API Reference
 
+### Swagger UI / OpenAPI
+
+Required assignment link: http://localhost:3000/swagger/
+
+Current status: the REST endpoints are implemented and listed below. The Swagger/OpenAPI endpoint will be enabled when the REST documentation requirement is completed.
+
 ### Backend API (`backend-api`)
 
 | Method | Endpoint | Description |
@@ -271,6 +307,86 @@ python -m pytest test_ai.py
 
 # Validate Docker Compose syntax
 docker compose config --quiet
+```
+
+---
+
+## GitHub Workflow
+
+### Repository Rules
+
+- The repository must remain Public for grading.
+- If the repository is changed to Private, the lecturer must be added as a collaborator before submission.
+- All team-facing project information must stay in this `README.md`: topic name, team members, functional scope, run instructions, and Swagger UI link.
+
+### Branching Model
+
+| Branch pattern | Purpose | Rule |
+|----------------|---------|------|
+| `main` | Stable production-ready code | Do not commit directly. Merge only from `develop`. |
+| `develop` | Main integration branch | Merge reviewed `feature/*` and `defect/*` branches here. |
+| `feature/<name>` | New feature work | Branch from `develop`, then create a Pull Request back to `develop`. |
+| `defect/<name>` | Bug fix work | Branch from `develop`, then create a Pull Request back to `develop`. |
+
+Local compatibility branches using `feature/*` have been created for the older `feat/*` branches. New work should use `feature/<name>` or `defect/<name>` to match the assignment rule.
+
+### Required Development Flow
+
+1. Update `develop`.
+
+```bash
+git switch develop
+git pull origin develop
+```
+
+2. Create a working branch.
+
+```bash
+git switch -c feature/<feature-name>
+```
+
+3. Commit with the required message format.
+
+```bash
+git commit -m "feat: add webhook normalization"
+```
+
+4. Push and open a Pull Request into `develop`.
+
+```bash
+git push origin feature/<feature-name>
+```
+
+5. Another member reviews the Pull Request.
+6. Merge into `develop` only after review and test evidence.
+7. Merge `develop` into `main` only when the project is stable for submission/demo.
+
+### Commit Message Standard
+
+Use this format:
+
+```text
+<type>: <short description>
+```
+
+Allowed types:
+
+| Type | Meaning |
+|------|---------|
+| `feat` | Add a feature |
+| `fix` | Fix a bug |
+| `docs` | Update documentation |
+| `refactor` | Improve code structure without behavior change |
+| `test` | Add or update tests |
+| `chore` | Build, tooling, configuration, or maintenance |
+
+Examples:
+
+```text
+feat: add facebook webhook validation
+fix: prevent duplicate reply command processing
+docs: update docker compose run guide
+test: cover retry dead letter flow
 ```
 
 ---

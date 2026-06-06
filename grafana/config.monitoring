@@ -1,0 +1,20 @@
+# Grafana Security
+GF_SECURITY_ADMIN_USER=admin
+GF_SECURITY_ADMIN_PASSWORD=admin
+
+# Grafana Database
+# GF_DATABASE_TYPE=sqlite3
+
+# Cấu hình Host/URL
+# GF_SERVER_DOMAIN=localhost
+# GF_SERVER_HTTP_PORT=3000
+
+# Tắt chức năng đăng ký người dùng mới
+GF_USERS_ALLOW_SIGN_UP=false
+
+# Cấu hình SMTP 
+# GF_SMTP_ENABLED=false
+# GF_SMTP_HOST=smtp.gmail.com:587
+# GF_SMTP_USER=myuser
+# GF_SMTP_PASSWORD=mypassword
+# GF_SMTP_FROM_ADDRESS=grafana@example.com
