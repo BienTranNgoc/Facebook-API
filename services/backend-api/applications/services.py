@@ -65,12 +65,15 @@ class CommandProcessor:
     def _claim_command(self, command_id, event_id, action):
         try:
             with transaction.atomic():
-                return IdempotencyKey.objects.create(
-                    command_id=command_id,
-                    event_id=event_id,
-                    action=action,
-                    status=IdempotencyKey.STATUS_PROCESSING,
-                ), True
+                return (
+                    IdempotencyKey.objects.create(
+                        command_id=command_id,
+                        event_id=event_id,
+                        action=action,
+                        status=IdempotencyKey.STATUS_PROCESSING,
+                    ),
+                    True,
+                )
         except IntegrityError:
             return IdempotencyKey.objects.get(command_id=command_id), False
 

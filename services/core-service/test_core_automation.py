@@ -41,7 +41,6 @@ class AutomationEngineTests(unittest.TestCase):
     def test_rate_limiting_works(self):
         engine = AutomationEngine()
         user_id = "spammer-1"
-        event = {"user_id": user_id, "event_id": "evt-1"}
         analysis = {"sentiment": "neutral", "spam": False}
 
         # Fire 20 events
@@ -69,7 +68,7 @@ class AutomationEngineTests(unittest.TestCase):
 
     def test_complaint_and_ask_price_replies(self):
         engine = AutomationEngine()
-        
+
         # Complaint
         cmd1 = engine.decide({"event_id": "e1"}, {"sentiment": "negative", "intent": "complaint"})
         self.assertEqual(cmd1["action"], "reply_comment")

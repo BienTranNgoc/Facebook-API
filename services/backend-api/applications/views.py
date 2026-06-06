@@ -32,7 +32,9 @@ def admin_token_required(view_func):
     def wrapper(request, *args, **kwargs):
         expected = settings.DASHBOARD_API_TOKEN
         if expected:
-            provided = request.headers.get("X-Admin-Token") or request.headers.get("Authorization", "").removeprefix("Bearer ")
+            provided = request.headers.get("X-Admin-Token") or request.headers.get("Authorization", "").removeprefix(
+                "Bearer "
+            )
             if provided != expected:
                 return api_response(status=401, error={"code": "unauthorized", "message": "admin token is required"})
         return view_func(request, *args, **kwargs)

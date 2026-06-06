@@ -3,6 +3,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from .models import EventRecord, IdempotencyKey
 
+
 @override_settings(FACEBOOK_API_MODE="mock", KAFKA_ENABLED=False)
 class ViewTests(TestCase):
     def test_health_check(self):
@@ -46,10 +47,10 @@ class ViewTests(TestCase):
     @override_settings(DASHBOARD_API_TOKEN="test-token")
     def test_process_command_authorized(self):
         response = self.client.post(
-            reverse("process_command"), 
-            data=json.dumps({"command_id": "c1", "action": "noop"}), 
+            reverse("process_command"),
+            data=json.dumps({"command_id": "c1", "action": "noop"}),
             content_type="application/json",
-            HTTP_X_ADMIN_TOKEN="test-token"
+            HTTP_X_ADMIN_TOKEN="test-token",
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["ok"])

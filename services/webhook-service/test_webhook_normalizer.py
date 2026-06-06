@@ -1,7 +1,5 @@
 import unittest
-from datetime import datetime, timezone
-
-from normalizer import normalize_events, _entry_time
+from normalizer import normalize_events
 
 
 class TestNormalizer(unittest.TestCase):
@@ -68,6 +66,7 @@ class TestNormalizer(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["event_type"], "unknown")
         self.assertEqual(events[0]["raw"], payload)
+
 
 if __name__ == "__main__":
     unittest.main()
