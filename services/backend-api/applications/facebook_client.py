@@ -11,6 +11,7 @@ from .circuit_breaker import CircuitBreaker, CircuitOpen
 from .models import FacebookRequestLog
 
 logger = logging.getLogger(__name__)
+FACEBOOK_DUPLICATE_SPAM_MARK_SUBCODE = 1446036
 facebook_breaker = CircuitBreaker(
     "facebook-api",
     failure_threshold=settings.FACEBOOK_CIRCUIT_FAILURE_THRESHOLD,
@@ -87,7 +88,7 @@ class FacebookClient:
         if self.mock_mode:
             return {"success": True, "comment_id": comment_id, "is_hidden": True}
         self._require_token()
-        return self._request("POST", f"/{comment_id}", {"is_hidden": "true"})
+        return self._request("POST", f"/{comment_id}", {"is_hidden": "true"}, idempotent_hide=True)
 
     def _require_token(self):
         if not self.page_id or not self.page_access_token:
@@ -97,7 +98,7 @@ class FacebookClient:
                 retryable=False,
             )
 
-    def _request(self, method, path, params):
+    def _request(self, method, path, params, idempotent_hide=False):
         try:
             facebook_breaker.before_call()
         except CircuitOpen as exc:
@@ -129,6 +130,18 @@ class FacebookClient:
         except urllib.error.HTTPError as exc:
             status_code = exc.code
             response_text = exc.read().decode("utf-8", errors="replace")
+            if idempotent_hide and self._is_duplicate_spam_mark(response_text):
+                facebook_breaker.record_success()
+                self._log(
+                    method,
+                    path,
+                    status_code,
+                    True,
+                    params,
+                    response_text,
+                    error="duplicate spam mark treated as success",
+                )
+                return {"success": True, "already_hidden": True}
             retryable = status_code >= 500 or status_code in {408, 429}
             if retryable:
                 facebook_breaker.record_failure()
@@ -145,11 +158,28 @@ class FacebookClient:
             raise FacebookAPIError("Facebook API timeout", status_code=504, retryable=True) from exc
 
     def _error_message(self, response_text):
-        try:
-            payload = json.loads(response_text or "{}")
-        except json.JSONDecodeError:
+        payload = self._error_payload(response_text)
+        if not payload:
             return response_text[:500]
-        return payload.get("error", {}).get("message") or response_text[:500]
+        error = payload.get("error", {})
+        parts = [str(error.get("message") or "").strip()]
+        if error.get("error_subcode"):
+            parts.append(f"subcode={error.get('error_subcode')}")
+        for key in ("error_user_title", "error_user_msg"):
+            value = str(error.get(key) or "").strip()
+            if value:
+                parts.append(value)
+        return " | ".join(part for part in parts if part) or response_text[:500]
+
+    def _error_payload(self, response_text):
+        try:
+            return json.loads(response_text or "{}")
+        except json.JSONDecodeError:
+            return {}
+
+    def _is_duplicate_spam_mark(self, response_text):
+        error = self._error_payload(response_text).get("error", {})
+        return error.get("error_subcode") == FACEBOOK_DUPLICATE_SPAM_MARK_SUBCODE
 
     def _log(self, method, endpoint, status_code, success, request_payload, response_text, error="", retryable=False):
         safe_payload = dict(request_payload or {})

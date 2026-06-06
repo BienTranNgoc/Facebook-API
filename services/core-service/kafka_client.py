@@ -9,6 +9,27 @@ def bootstrap_servers():
     return os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092").split(",")
 
 
+def safe_json_deserializer(raw):
+    text = raw.decode("utf-8", errors="replace")
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return {
+            "_malformed_json": True,
+            "_raw": text[:500],
+            "_error": str(exc),
+        }
+
+    if isinstance(payload, str):
+        nested = payload.strip()
+        if nested.startswith(("{", "[")):
+            try:
+                return json.loads(nested)
+            except json.JSONDecodeError:
+                return payload
+    return payload
+
+
 class JsonKafkaProducer:
     def __init__(self):
         self.enabled = os.getenv("KAFKA_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
@@ -43,7 +64,7 @@ class JsonKafkaConsumer:
             group_id=group_id,
             enable_auto_commit=False,
             auto_offset_reset="earliest",
-            value_deserializer=lambda raw: json.loads(raw.decode("utf-8")),
+            value_deserializer=safe_json_deserializer,
             key_deserializer=lambda raw: raw.decode("utf-8") if raw else None,
         )
 

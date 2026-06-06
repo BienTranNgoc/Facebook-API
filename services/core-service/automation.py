@@ -8,7 +8,27 @@ class AutomationEngine:
         self.user_events = defaultdict(deque)
         self.spam_events = defaultdict(deque)
 
+    def should_ignore(self, event):
+        return (
+            event.get("event_type") == "comment"
+            and event.get("page_id")
+            and event.get("user_id") == event.get("page_id")
+        )
+
+    def ignored_command(self, event, reason="self_event"):
+        analysis = {
+            "intent": "ignored",
+            "sentiment": "neutral",
+            "spam": False,
+            "confidence": 1,
+            "provider": "system",
+        }
+        return self._command(event, analysis, "noop", reason=reason)
+
     def decide(self, event, analysis):
+        if self.should_ignore(event):
+            return self.ignored_command(event)
+
         now = datetime.now(timezone.utc)
         if self._rate_limited(event.get("user_id", ""), now):
             return self._command(event, analysis, "pending_review", reason="rate_limit")
@@ -21,12 +41,40 @@ class AutomationEngine:
         sentiment = analysis.get("sentiment", "neutral")
         intent = analysis.get("intent", "general")
         if sentiment == "positive":
-            return self._command(event, analysis, "reply_comment", reply_text="Cam on ban da ung ho page!", reason="positive_sentiment")
+            return self._command(
+                event,
+                analysis,
+                "reply_comment",
+                reply_text=self._reply_text(analysis, "Cam on ban da ung ho page!"),
+                reason="positive_sentiment",
+            )
         if sentiment == "negative":
-            return self._command(event, analysis, "reply_comment", reply_text="Rat xin loi ve trai nghiem chua tot. Ben minh se kiem tra va ho tro ngay.", reason="negative_sentiment")
+            return self._command(
+                event,
+                analysis,
+                "reply_comment",
+                reply_text=self._reply_text(
+                    analysis,
+                    "Rat xin loi ve trai nghiem chua tot. Ben minh se kiem tra va ho tro ngay.",
+                ),
+                reason="negative_sentiment",
+            )
         if intent == "ask_price":
-            return self._command(event, analysis, "reply_comment", reply_text="Cam on ban da quan tam. Admin se gui thong tin chi tiet som nhat.", reason="ask_price")
+            return self._command(
+                event,
+                analysis,
+                "reply_comment",
+                reply_text=self._reply_text(
+                    analysis,
+                    "Cam on ban da quan tam. Admin se gui thong tin chi tiet som nhat.",
+                ),
+                reason="ask_price",
+            )
         return self._command(event, analysis, "noop", reason="no_automation_rule")
+
+    def _reply_text(self, analysis, fallback):
+        reply_text = str(analysis.get("reply_text") or "").strip()
+        return reply_text or fallback
 
     def _rate_limited(self, user_id, now):
         if not user_id:
@@ -68,6 +116,7 @@ class AutomationEngine:
             "sentiment": analysis.get("sentiment", "neutral"),
             "spam": bool(analysis.get("spam", False)),
             "confidence": analysis.get("confidence", 0),
+            "analysis_provider": analysis.get("provider", ""),
             "source_text": event.get("text", ""),
             "retry_count": 0,
             "created_at": datetime.now(timezone.utc).isoformat(),

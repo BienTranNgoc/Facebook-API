@@ -25,7 +25,13 @@ class Command(BaseCommand):
         for message in consumer:
             payload = message.value
             try:
-                processor.process(payload)
+                result = processor.process(payload)
+                logger.info(
+                    "command processed command_id=%s action=%s status=%s",
+                    payload.get("command_id", ""),
+                    payload.get("action", ""),
+                    result.get("status", "processed"),
+                )
             except FacebookAPIError as exc:
                 logger.warning("facebook command failed and was published to retry pipeline: %s", exc.message)
             except Exception:
