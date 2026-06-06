@@ -1,46 +1,42 @@
 groups:
-    - name: kafka_alerts
-      rules:
-          # Cảnh báo khi có message mới vào Dead Letter Queue
-          - alert: DeadLetterQueueReceived
-            expr: >
-                increase(
-                  kafka_topic_partition_current_offset{topic="dead_letter"}[1m]
-                ) > 0
-            for: 0m
-            labels:
-                severity: critical
-            annotations:
-                summary: "Co message moi vao Dead Letter Queue"
-                description: >
-                    Topic dead_letter vua nhan them message.
-                    Kiem tra Kafka UI tai http://localhost:8080
-                    de xem noi dung va xu ly thu cong.
+  - name: kafka_alerts
+    rules:
+      - alert: DeadLetterQueueReceived
+        expr: >
+          increase(
+            kafka_topic_partition_current_offset{topic="dead_letter"}[1m]
+          ) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "New message in Dead Letter Queue"
+          description: >
+            Topic dead_letter received new messages.
+            Check Kafka UI at http://localhost:8080 for manual inspection.
 
-          # Cảnh báo khi consumer lag quá cao
-          - alert: KafkaConsumerLagHigh
-            expr: kafka_consumer_group_lag > 500
-            for: 2m
-            labels:
-                severity: warning
-            annotations:
-                summary: "Consumer lag cao bat thuong"
-                description: >
-                    Consumer group {{ $labels.consumergroup }}
-                    dang lag {{ $value }} message tren topic
-                    {{ $labels.topic }}.
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_group_lag > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer lag is abnormally high"
+          description: >
+            Consumer group {{ $labels.consumergroup }}
+            is lagging {{ $value }} messages on topic
+            {{ $labels.topic }}.
 
-          # Cảnh báo khi không có event nào vào raw_events
-          - alert: WebhookReceiverSilent
-            expr: >
-                increase(
-                  kafka_topic_partition_current_offset{topic="raw_events"}[5m]
-                ) == 0
-            for: 10m
-            labels:
-                severity: warning
-            annotations:
-                summary: "Khong co event nao tu Facebook trong 10 phut"
-                description: >
-                    Topic raw_events khong co message moi.
-                    Kiem tra lai Facebook Webhook subscription.
+      - alert: WebhookReceiverSilent
+        expr: >
+          increase(
+            kafka_topic_partition_current_offset{topic="raw_events"}[5m]
+          ) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No events from Facebook in 10 minutes"
+          description: >
+            Topic raw_events has no new messages.
+            Verify Facebook Webhook subscription is active.
