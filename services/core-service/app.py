@@ -48,9 +48,30 @@ def run_consumer():
     logger.info("core-service consuming topic=%s", RAW_EVENTS_TOPIC)
     for message in consumer:
         event = message.value
-        event_id = event.get("event_id")
         should_commit = False
         try:
+            if isinstance(event, dict) and event.get("_malformed_json"):
+                logger.warning(
+                    "skip malformed raw event offset=%s key=%s error=%s raw=%s",
+                    getattr(message, "offset", ""),
+                    getattr(message, "key", ""),
+                    event.get("_error", ""),
+                    event.get("_raw", ""),
+                )
+                should_commit = True
+                continue
+            if not isinstance(event, dict):
+                logger.warning(
+                    "skip non-object raw event offset=%s key=%s value_type=%s value=%s",
+                    getattr(message, "offset", ""),
+                    getattr(message, "key", ""),
+                    type(event).__name__,
+                    str(event)[:500],
+                )
+                should_commit = True
+                continue
+
+            event_id = event.get("event_id")
             if not event_id:
                 logger.warning("skip event without event_id: %s", event)
                 should_commit = True
@@ -59,12 +80,28 @@ def run_consumer():
                 logger.info("duplicate event skipped event_id=%s", event_id)
                 should_commit = True
                 continue
+            if engine.should_ignore(event):
+                command = engine.ignored_command(event)
+                producer.publish(REPLY_COMMANDS_TOPIC, command, key=command["command_id"])
+                dedup.mark_processed(event_id)
+                should_commit = True
+                logger.info("event ignored event_id=%s reason=%s", event_id, command["reason"])
+                continue
             analysis = analyzer.analyze(event)
             command = engine.decide(event, analysis)
             producer.publish(REPLY_COMMANDS_TOPIC, command, key=command["command_id"])
             dedup.mark_processed(event_id)
             should_commit = True
-            logger.info("event processed event_id=%s action=%s", event_id, command["action"])
+            logger.info(
+                "event processed event_id=%s action=%s provider=%s intent=%s sentiment=%s spam=%s reply_text=%s",
+                event_id,
+                command["action"],
+                command.get("analysis_provider", ""),
+                command.get("intent", ""),
+                command.get("sentiment", ""),
+                command.get("spam", False),
+                command.get("reply_text", "")[:160],
+            )
         except Exception:
             logger.exception("failed to process raw event; offset will not be committed")
         finally:
