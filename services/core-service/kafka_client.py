@@ -37,6 +37,7 @@ class JsonKafkaProducer:
         if not self.enabled:
             return
         from kafka import KafkaProducer
+
         self._producer = KafkaProducer(
             bootstrap_servers=bootstrap_servers(),
             value_serializer=lambda value: json.dumps(value, ensure_ascii=True).encode("utf-8"),
@@ -58,6 +59,7 @@ class JsonKafkaProducer:
 class JsonKafkaConsumer:
     def __init__(self, topics, group_id):
         from kafka import KafkaConsumer
+
         self.consumer = KafkaConsumer(
             *topics,
             bootstrap_servers=bootstrap_servers(),
