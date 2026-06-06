@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+      - run: pip install black flake8
+      - name: Check formatting
+        run: black --check --line-length=120 --diff services/
+      - name: Lint
+        run: >
+          flake8 services/
+          --max-line-length=120
+          --extend-ignore=E203,W503
+          --exclude='*/migrations/*,*/__pycache__/*'
+          --count --statistics
+
+  check-commits:
+    name: Validate commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check commit messages
+        run: |
+          PATTERN="^(feat|fix|docs|refactor|test|chore): .+"
+          ERRORS=0
+          COMMITS=$(git log --format="%s" origin/${{ github.base_ref }}..HEAD 2>/dev/null || echo "")
+          [ -z "$COMMITS" ] && exit 0
+          while IFS= read -r MSG; do
+            [[ "$MSG" =~ ^Merge ]] && continue
+            if [[ ! "$MSG" =~ $PATTERN ]]; then
+              echo "error: \"$MSG\""
+              ERRORS=$((ERRORS + 1))
+            fi
+          done <<< "$COMMITS"
+          [ $ERRORS -gt 0 ] && { echo "$ERRORS invalid commit(s)"; exit 1; }
+
+  check-branch:
+    name: Validate branch
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check branch name
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          PATTERN="^(main|develop|feature/[a-z0-9._-]+|defect/[a-z0-9._-]+)$"
+          if [[ ! "$BRANCH" =~ $PATTERN ]]; then
+            echo "error: branch '$BRANCH' does not match convention"
+            exit 1
+          fi
+      - name: Check PR target
+        run: |
+          BASE="${{ github.base_ref }}"
+          HEAD="${{ github.head_ref }}"
+          if [[ "$HEAD" =~ ^(feature|defect)/ ]] && [[ "$BASE" != "develop" ]]; then
+            echo "error: $HEAD must target develop, not $BASE"
+            exit 1
+          fi
+          if [[ "$BASE" == "main" ]] && [[ "$HEAD" != "develop" ]]; then
+            echo "error: only develop can merge into main"
+            exit 1
+          fi
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+      - name: Install dependencies
+        run: |
+          if [ -f services/backend-api/requirements.txt ]; then
+            pip install -r services/backend-api/requirements.txt
+          fi
+      - name: Run tests
+        working-directory: services/backend-api
+        env:
+          DJANGO_SETTINGS_MODULE: backend.settings
+          DATABASE_URL: sqlite:///test.db
+          FACEBOOK_API_MODE: mock
+          SECRET_KEY: ci-test-key
+        run: |
+          if [ -f manage.py ]; then
+            python manage.py test applications --verbosity=2
+          fi
+
+  docker-validate:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f docker-compose.yml config --quiet

@@ -207,3 +207,5 @@ COPILOT.md
 
 # Pre-commit config (optional – uncomment if not shared)
 # .pre-commit-config.yaml
+
+docs/
