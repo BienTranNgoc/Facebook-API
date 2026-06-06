@@ -46,16 +46,18 @@ jobs:
         run: |
           PATTERN="^(feat|fix|docs|refactor|test|chore): .+"
           ERRORS=0
-          COMMITS=$(git log --format="%s" origin/${{ github.base_ref }}..HEAD 2>/dev/null || echo "")
-          [ -z "$COMMITS" ] && exit 0
           while IFS= read -r MSG; do
-            [[ "$MSG" =~ ^Merge ]] && continue
+            [ -z "$MSG" ] && continue
             if [[ ! "$MSG" =~ $PATTERN ]]; then
               echo "error: \"$MSG\""
               ERRORS=$((ERRORS + 1))
             fi
-          done <<< "$COMMITS"
-          [ $ERRORS -gt 0 ] && { echo "$ERRORS invalid commit(s)"; exit 1; }
+          done < <(git log --no-merges --format="%s" origin/${{ github.base_ref }}..HEAD)
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "$ERRORS invalid commit(s)"
+            exit 1
+          fi
+          echo "All commit messages are valid"
 
   check-branch:
     name: Validate branch
@@ -100,7 +102,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install coverage pytest pytest-cov pytest-django
-          find services -name "requirements.txt" -exec pip install -r {} +
+          while IFS= read -r REQ; do
+            pip install -r "$REQ"
+          done < <(find services -name "requirements.txt" -not -path "*/.venv/*" -not -path "*/venv/*")
       - name: Run tests with coverage
         env:
           DJANGO_SETTINGS_MODULE: ProjectConfig.settings
