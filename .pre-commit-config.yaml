@@ -1,0 +1,19 @@
+repos:
+  # 1. Kiểm tra cấu trúc câu commit theo chuẩn Conventional
+  - repo: https://github.com
+    rev: v4.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+
+  # 2. Tự động format code Python chuẩn
+  - repo: https://github.com
+    rev: 26.1.0 
+    hooks:
+      - id: black
+
+  # 3. Kiểm tra lỗi logic, cú pháp và import thừa trong Django
+  - repo: https://github.com
+    rev: 7.1.0
+    hooks:
+      - id: flake8
